@@ -26,12 +26,10 @@ class UserManager(BaseUserManager):
             mobile=mobile,
             password=password
         )
-        user.is_admin = True
-        user.is_superuser = True
         user.is_staff = True
+        user.is_superuser = True
         user.save(using=self._db)
         return user
-
 
 # Custom User model
 class User(AbstractBaseUser):
@@ -46,12 +44,17 @@ class User(AbstractBaseUser):
         unique=True,
         validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Enter a valid mobile number")]
     )
-    is_active = models.BooleanField(default=True)
-    is_admin = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False)
-    is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['email']),
+            models.Index(fields=['mobile'])
+        ]
 
     objects = UserManager()
 
@@ -60,12 +63,6 @@ class User(AbstractBaseUser):
 
     def __str__(self):
         return self.email
-
-    def has_perm(self, perm, obj=None):
-        return self.is_admin or self.is_superuser
-
-    def has_module_perms(self, app_label):
-        return self.is_admin or self.is_superuser
 
 
 # Department model
@@ -95,15 +92,24 @@ class Designation(models.Model):
         return self.designation_name
 
 
+# Permission Table
+class Permission(models.Model):
+    permission_id = models.AutoField(primary_key=True)
+    permission_name = models.CharField(max_length=50, unique=True, null=False)
+
+    def __str__(self):
+        return self.permission_name
+
+
 # User_Role Table (Relationship between User and Role)
 class UserRole(models.Model):
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)  # Changed from emp_id to user
-    role = models.ForeignKey(Role, on_delete=models.CASCADE, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)  
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, db_index=True) 
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'role'], name='unique_user_role')  # Updated field names for clarity
+            models.UniqueConstraint(fields=['user', 'role'], name='user_role')
         ]
 
     def __str__(self):
@@ -113,12 +119,12 @@ class UserRole(models.Model):
 # User_Department Table (Relationship between User and Department)
 class UserDepartment(models.Model):
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)  # Changed from emp_id to user
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)  
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, db_index=True) 
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'department'], name='unique_user_department')  # Updated field names for clarity
+            models.UniqueConstraint(fields=['user', 'department'], name='user_department')
         ]
 
     def __str__(self):
@@ -128,13 +134,24 @@ class UserDepartment(models.Model):
 # User_Designation Table (Relationship between User and Designation)
 class UserDesignation(models.Model):
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)  # Changed from emp_id to user
-    designation = models.ForeignKey(Designation, on_delete=models.CASCADE, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True) 
+    designation = models.ForeignKey(Designation, on_delete=models.CASCADE, db_index=True) 
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'designation'], name='unique_user_designation')  # Updated field names for clarity
+            models.UniqueConstraint(fields=['user', 'designation'], name='user_designation')
         ]
 
     def __str__(self):
         return f"{self.user.name} - {self.designation.designation_name}"
+
+
+# Role Permission Table (Many-to-Many Relationship)
+class RolePermission(models.Model):
+    id = models.AutoField(primary_key=True)
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, db_index=True) 
+    permissions = models.ManyToManyField(Permission, related_name="role_permissions") 
+
+    def __str__(self):
+        return f"{self.user.username} - {', '.join([perm.permission_name for perm in self.permissions.all()])}"
+

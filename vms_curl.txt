@@ -1,0 +1,124 @@
+### register
+curl --location 'http://127.0.0.1:8000/emp/auth/register/' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "name": "Vikas Prajapati",
+    "email": "vikas@gmail.com",
+    "mobile": "+916393549811",
+    "password": "12345678",
+    "password2": "12345678"
+}
+'
+
+### login
+curl --location 'http://127.0.0.1:8000/emp/auth/login/' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "email": "vikas@gmail.com",
+    "password": "12345678"
+}
+'
+
+### profile
+curl --location 'http://127.0.0.1:8000/emp/auth/profile/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjU3MDk0LCJpYXQiOjE3MzkyNTU4OTQsImp0aSI6ImI4YzdjZjRlNWY0NzQ0ZWJiZGFkYzEyMjM3ZGM5ZjM0IiwidXNlcl9pZCI6MX0.TKoVnaFqP30prol4tDryMPqapLV3GpE-RBxuu84CZG4' \
+--data ''
+
+
+### changepassword
+curl --location 'http://127.0.0.1:8000/emp/auth/changepassword/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjU3MDk0LCJpYXQiOjE3MzkyNTU4OTQsImp0aSI6ImI4YzdjZjRlNWY0NzQ0ZWJiZGFkYzEyMjM3ZGM5ZjM0IiwidXNlcl9pZCI6MX0.TKoVnaFqP30prol4tDryMPqapLV3GpE-RBxuu84CZG4' \
+--data '{
+    "password": "password123",
+    "password2": "password123"
+}
+'
+
+### send-password-reset-email
+curl --location 'http://127.0.0.1:8000/emp/auth/send-password-reset-email/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjU3MDk0LCJpYXQiOjE3MzkyNTU4OTQsImp0aSI6ImI4YzdjZjRlNWY0NzQ0ZWJiZGFkYzEyMjM3ZGM5ZjM0IiwidXNlcl9pZCI6MX0.TKoVnaFqP30prol4tDryMPqapLV3GpE-RBxuu84CZG4' \
+--data-raw '{
+    "email": "vikas@gmail.com"
+}
+'
+
+### departments
+curl --location 'http://127.0.0.1:8000/emp/departments/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjU5MDI4LCJpYXQiOjE3MzkyNTc4MjgsImp0aSI6ImE5Y2NiMDI1NTliNjQwZWU4MjY2MmM3MTUwY2Y2MmVlIiwidXNlcl9pZCI6MX0.yo9haduGIW3sCC3CLz1olPCnkK3Rf4VJs8T0V4AFIc8' \
+--data '{
+    "department_name": "Information and Technology"
+}
+'
+
+### designations
+curl --location 'http://127.0.0.1:8000/emp/designations/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjU5MzY1LCJpYXQiOjE3MzkyNTgxNjUsImp0aSI6ImQ0MWM4YjE0N2Y3NzRlYjVhNDhlMGQxZDFlY2RjZWQ2IiwidXNlcl9pZCI6MX0.mqcZp20OODuQeWEY3EZhvvjVQkzDqbfSGRURTEM1i1o' \
+--data '{
+    "designation_name": "Software Development"
+}
+'
+
+### roles
+curl --location 'http://127.0.0.1:8000/emp/roles/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjU5NTgyLCJpYXQiOjE3MzkyNTgzODIsImp0aSI6ImJhYjU3NjcyNGQ0MjQ1MjBiZTI3YTVlMjljN2YwMjAxIiwidXNlcl9pZCI6MX0._wDAzQM3P2TspDdIJUp_EtqbtyYbsCNT596W-cyOliM' \
+--data '{
+    "role_name": "Admin"
+}
+'
+
+### permissions
+curl --location 'http://127.0.0.1:8000/emp/permissions/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjY1MTYyLCJpYXQiOjE3MzkyNjM5NjIsImp0aSI6ImJiMWRiYjM0ZDBiZDQxMzdiMzA4MDdiZGYxMjlmMWUzIiwidXNlcl9pZCI6MX0.u0gTBj6i-k6bT80xpOQCu--L0spyrR01YMth2v1ffVk' \
+--data '{
+    "permission_name": "create_role" 
+}
+'
+
+### user-roles
+curl --location 'http://127.0.0.1:8000/emp/user-roles/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjY3NzQyLCJpYXQiOjE3MzkyNjY1NDIsImp0aSI6Ijk2YmZjZjZiMjI4NzQ0NmE4YzExMzIwN2U4MjI5MTFmIiwidXNlcl9pZCI6MX0.lP_TUxsL14USIH-QqaiY0tbMGyr5VjsTEUwEtkekuJo' \
+--data '{
+    "user_id": "1",
+    "role_id": "1"
+}
+'
+
+
+### user-departments
+curl --location 'http://127.0.0.1:8000/emp/user-departments/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjY3NzQyLCJpYXQiOjE3MzkyNjY1NDIsImp0aSI6Ijk2YmZjZjZiMjI4NzQ0NmE4YzExMzIwN2U4MjI5MTFmIiwidXNlcl9pZCI6MX0.lP_TUxsL14USIH-QqaiY0tbMGyr5VjsTEUwEtkekuJo' \
+--data '{
+    "user_id": "1",
+    "department_id": "2"
+}
+'
+
+### user-designations
+curl --location 'http://127.0.0.1:8000/emp/user-designations/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjY5MjE2LCJpYXQiOjE3MzkyNjgwMTYsImp0aSI6IjVhYzk5ZGY1YmY1NjQ5MzBiNzc3NDUzYjgyNWQ3NjYwIiwidXNlcl9pZCI6MX0.CeyDSjNHHBcCZpyGpjuMt6whdYU0lOzqc6VnxekJMrk' \
+--data '{
+    "user_id": "1",
+    "designation_id": "1"
+}
+'
+
+### role-permissions
+curl --location 'http://127.0.0.1:8000/emp/role-permissions/' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5MjcxMjUyLCJpYXQiOjE3MzkyNzAwNTIsImp0aSI6IjJiNWVkMzUzZTFhYTQwNTBiZWRkODJjNjU3NzczNDM5IiwidXNlcl9pZCI6MX0.kwA1FT2CCEmDRcE5PLH4y2pjbVd3awBNL4WbCF0P6DE' \
+--data '{
+    "role_id": 1,
+    "permissions_id": [1, 2, 3]
+}
+'
+

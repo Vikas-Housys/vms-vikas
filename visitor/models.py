@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils.timezone import now
-from employee.models import User  # Importing User from the employee app
+from employee.models import User, Role  # Importing User and Role from the employee app
 import uuid
 import qrcode
 from io import BytesIO
@@ -13,11 +13,16 @@ class Visitor(models.Model):
     visitor_email = models.EmailField(unique=True, null=False)
     visitor_mobile = models.CharField(max_length=15, unique=True, null=False)
     registered_by = models.ForeignKey(
-        User,  # Linking to the User model from the employee app
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
+        User, 
+        null=True, blank=True, 
+        on_delete=models.SET_NULL, 
         related_name='registered_visitors'
+    )
+    assigned_role = models.ForeignKey(
+        Role, 
+        null=True, blank=True, 
+        on_delete=models.SET_NULL, 
+        related_name='visitor_roles'
     )
     employee_name = models.CharField(max_length=255, null=True, blank=True)
     purpose = models.CharField(max_length=255, null=False)
@@ -42,7 +47,7 @@ class Visitor(models.Model):
             box_size=10,
             border=4,
         )
-        qr_data = f"ID: {self.visitor_id}, Name: {self.visitor_name}, Mobile: {self.visitor_mobile}, Visit Code: {self.visit_code}"
+        qr_data = f"ID: {self.visitor_id}, Name: {self.visitor_name}, Role: {self.assigned_role}, Visit Code: {self.visit_code}"
         qr.add_data(qr_data)
         qr.make(fit=True)
 

@@ -3,20 +3,26 @@ from rest_framework import status, viewsets
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+from rest_framework import serializers
 
 from employee.serializers import (
     UserRegistrationSerializer, UserLoginSerializer, UserProfileSerializer, 
     UserChangePasswordSerializer, SendPasswordResetEmailSerializer, 
-    UserPasswordResetSerializer, DepartmentSerializer, RoleSerializer, 
+    UserPasswordResetSerializer, DepartmentSerializer, RoleSerializer, PermissionSerializer,
     DesignationSerializer,
     UserRoleSerializer, 
     UserDesignationSerializer,
-    UserDepartmentSerializer
+    UserDepartmentSerializer,
+    RolePermissionSerializer,
 )
-from .models import (
-    User, Department, Role, Designation,
-    UserRole, UserDepartment, UserDesignation)
+from employee.models import (
+    User, Department, Role, Designation, Permission,
+    UserRole, UserDepartment, UserDesignation, RolePermission
+)
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from django.db.models.signals import post_migrate
+from django.dispatch import receiver
 
 
 # Generate Token Manually
@@ -28,47 +34,98 @@ def get_tokens_for_user(user):
     }
 
 
-### User Registration ###
+# Check the role permission
+def has_user_permission(user, permission_name):
+    if user.is_superuser:
+        return True
+    try:
+        user_roles = UserRole.objects.filter(user=user)
+        role_permissions = RolePermission.objects.filter(role__in=user_roles.values('role'))
+        return Permission.objects.filter(
+            role_permissions__in=role_permissions,
+            permission_name=permission_name
+        ).exists()
+    except:
+        return False
+
+
+# User Registration View
 class UserRegistrationView(APIView):
+    permission_classes = [IsAuthenticated]
+    
     def post(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_user'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
             token = get_tokens_for_user(user)
-            return Response({'data': serializer.data, 'message': 'Registration Successful.'}, 
-                            status=status.HTTP_201_CREATED)
+            return Response(
+                {'data': serializer.data, 'message': 'Registration Successful.'},
+                status=status.HTTP_201_CREATED
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-### User Login ###
+# User Login View
 class UserLoginView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             email = serializer.validated_data.get('email')
             password = serializer.validated_data.get('password')
-
-            try:
-                user = User.objects.get(email=email)
-                if not user.check_password(password):
-                    raise ValueError("Invalid password")
-            except User.DoesNotExist:
-                return Response({"error": "Invalid email or password."}, status=status.HTTP_404_NOT_FOUND)
-
+            
+            user = authenticate(email=email, password=password)
+            if user is None:
+                return Response(
+                    {"error": "Invalid email or password."},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+                
             token = get_tokens_for_user(user)
+            
             return Response({'token': token, 'message': 'Login Successful.'}, status=status.HTTP_200_OK)
 
 
-### User Profile ###
+# User Logout View
+class UserLogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            # Blacklist the access token
+            access_token = request.auth
+            if access_token:
+                try:
+                    AccessToken(access_token).blacklist()
+                except TokenError:
+                    pass  # Token is already expired or invalid
+
+            # Blacklist the refresh token (if available)
+            user = request.user
+            refresh_token = RefreshToken.for_user(user)
+            try:
+                refresh_token.blacklist()
+            except TokenError:
+                pass  # Refresh token is already expired or invalid
+
+            return Response({"message": "Logout successful."}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# User Profile View
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+            
 
-
-### Change Password ###
+# Change Password View
 class UserChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -81,24 +138,25 @@ class UserChangePasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-### Send Password Reset Email ###
+# Send Password Reset Email View
 class SendPasswordResetEmailView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = SendPasswordResetEmailSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response({"message": "Password reset mail sent successfully"}, status=status.HTTP_200_OK)
+        if serializer.is_valid(raise_exception=True):
+            return Response({"message": "Password reset email sent successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-### Password Reset ###
+# Password Reset View
 class UserPasswordResetView(APIView):
     def post(self, request, *args, **kwargs):
         uid = kwargs.get('uid')
         token = kwargs.get('token')
 
         serializer = UserPasswordResetSerializer(data=request.data, context={'uid': uid, 'token': token})
-        serializer.is_valid(raise_exception=True)
-
-        return Response({'message': "Password reset successful."}, status=status.HTTP_200_OK)
+        if serializer.is_valid(raise_exception=True):
+            return Response({'message': "Password reset successful."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 ### Department ViewSet ###
@@ -106,6 +164,21 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
+    
+    def create(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_department'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'update_department'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'delete_department'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
 
 
 ### Role ViewSet ###
@@ -113,6 +186,21 @@ class RoleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
+    
+    def create(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_role'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'update_role'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'delete_role'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
 
 
 ### Designation ViewSet ###
@@ -120,30 +208,55 @@ class DesignationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Designation.objects.all()
     serializer_class = DesignationSerializer
+    
+    def create(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_designation'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
 
-### UserRole ViewSet
+    def update(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'update_designation'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'delete_designation'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
+
+### Permission ViewSet ###
+class PermissionViewSet(viewsets.ReadOnlyModelViewSet):  # Read-only operations
+    permission_classes = [IsAuthenticated]
+    queryset = Permission.objects.all()
+    serializer_class = PermissionSerializer
+    
+
+### UserRole ViewSet ###
 class UserRoleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = UserRole.objects.all()
     serializer_class = UserRoleSerializer
 
     def create(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_user_role'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Check if the user-role combination already exists
         user = serializer.validated_data['user']
         role = serializer.validated_data['role']
-        if UserRole.objects.filter(user=user, role=role).exists():
-            return Response(
-                {"error": "This user already has this role."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
 
-        self.perform_create(serializer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Get or create UserRole instance
+        user_role, created = UserRole.objects.get_or_create(user=user, role=role)
+
+        return Response(UserRoleSerializer(user_role).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'update_user_role'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -162,6 +275,8 @@ class UserRoleViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'delete_user_role'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         instance = self.get_object()
         instance.delete()
         return Response(
@@ -169,13 +284,17 @@ class UserRoleViewSet(viewsets.ModelViewSet):
             status=status.HTTP_204_NO_CONTENT
         )
 
-### UserDepartment ViewSet
+
+### UserDepartment ViewSet ###
 class UserDepartmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = UserDepartment.objects.all()
     serializer_class = UserDepartmentSerializer
 
     def create(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_user_department'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -192,6 +311,9 @@ class UserDepartmentViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'update_user_department'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -210,6 +332,9 @@ class UserDepartmentViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'delete_user_department'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         instance = self.get_object()
         instance.delete()
         return Response(
@@ -217,13 +342,17 @@ class UserDepartmentViewSet(viewsets.ModelViewSet):
             status=status.HTTP_204_NO_CONTENT
         )
 
-### UserDesignation ViewSet : need update
+
+### UserDesignation ViewSet ###
 class UserDesignationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = UserDesignation.objects.all()
     serializer_class = UserDesignationSerializer
 
     def create(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_user_designation'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -240,6 +369,9 @@ class UserDesignationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'update_user_designation'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -258,10 +390,61 @@ class UserDesignationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'delete_user_designation'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
         instance = self.get_object()
         instance.delete()
         return Response(
             {"message": "User designation entry deleted successfully."},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+### RolePermission ViewSet ###
+class RolePermissionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = RolePermission.objects.all()
+    serializer_class = RolePermissionSerializer
+
+    def create(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'create_role_permission'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        role = serializer.validated_data['role']
+        permissions = serializer.validated_data['permissions']
+        
+        role_permission, created = RolePermission.objects.get_or_create(role=role)
+        role_permission.permissions.set(permissions)
+
+        return Response(RolePermissionSerializer(role_permission).data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'update_role_permission'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        # Update only the provided fields
+        if 'permissions' in serializer.validated_data:
+            instance.permissions.set(serializer.validated_data['permissions'])
+
+        return Response(RolePermissionSerializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        if not has_user_permission(request.user, 'delete_role_permission'):
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        instance = self.get_object()
+        instance.delete()
+        return Response(
+            {"message": "Role permission entry deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
 

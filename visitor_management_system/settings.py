@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'employee',
     'visitor'
 ]
@@ -85,7 +86,7 @@ WSGI_APPLICATION = 'visitor_management_system.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',  # Database engine for MySQL
-        'NAME': 'vms_auth_db',         # Name of your MySQL database
+        'NAME': 'vms_auth_db_06',         # Name of your MySQL database
         'USER': 'root',              # MySQL username
         'PASSWORD': 'housys12345678',          # MySQL password
         'HOST': 'localhost',                  # Host where the database is running
@@ -142,6 +143,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'employee.User' # user my model
 
 load_dotenv()
+# '''
+# Create a .env file and enter given data below.
+# # ============================================
+# EMAIL_USER = 'enter your email'
+# EMAIL_PASS = 'email password'
+# EMAIL_FROM = 'enter your email'
+# # ============================================
+# Note: Enable SMTP protocal for your email.
+# '''
+
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -159,21 +170,27 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=20),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    
+    "ROTATE_REFRESH_TOKENS": True, 
+    "BLACKLIST_AFTER_ROTATION": True, 
+    'UPDATE_LAST_LOGIN': True,
 
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
+    "VERIFYING_KEY": None,
 
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
     "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
-
+ 
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "TOKEN_USER_CLASS": "rest_framework_simplejwt.models.TokenUser",
+    "TOKEN_BLACKLIST": True, 
 
     "JTI_CLAIM": "jti",
 
