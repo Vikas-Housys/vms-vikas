@@ -1,3 +1,4 @@
+# serializers.py
 from rest_framework import serializers
 from .models import (
     User, Department, Role, Designation, Permission,
@@ -8,8 +9,6 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.translation import gettext_lazy as _
-from rest_framework_simplejwt.tokens import RefreshToken, AccessToken, TokenError
-
 
 # User Registration Serializer
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -28,21 +27,26 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password2')  # Remove password2 before passing to `create_user`
-        return User.objects.create_user(**validated_data)
-
+        user = User.objects.create_user(**validated_data)
+        return user
 
 # User Login Serializer
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=255)
     password = serializers.CharField(style={'input_type': 'password'}, write_only=True)
 
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+        if not email or not password:
+            raise serializers.ValidationError({'error': _('Email and password are required.')})
+        return attrs
 
 # User Profile Serializer
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'name', 'email', 'mobile']
-
 
 # User Change Password Serializer
 class UserChangePasswordSerializer(serializers.Serializer):
