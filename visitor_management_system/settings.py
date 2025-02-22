@@ -84,7 +84,7 @@ WSGI_APPLICATION = 'visitor_management_system.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',  # Database engine for MySQL
-        'NAME': 'vms_db_0501',         # Name of your MySQL database
+        'NAME': 'test_name',         # Name of your MySQL database
         'USER': 'root',              # MySQL username
         'PASSWORD': 'housys12345678',          # MySQL password
         'HOST': 'localhost',                  # Host where the database is running
