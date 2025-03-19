@@ -2,11 +2,13 @@
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
 from employee.permissions import permission_required
 from employee.authentication import JWTAuthentication
 from django.contrib.auth import authenticate
+
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from employee.serializers import (
     UserRegistrationSerializer, UserLoginSerializer, UserProfileSerializer, 
@@ -17,6 +19,7 @@ from employee.serializers import (
     UserDesignationSerializer,
     UserDepartmentSerializer,
     RolePermissionSerializer,
+    UserSerializer,
 )
 from employee.models import (
     User, Department, Role, Designation, Permission,
@@ -28,6 +31,7 @@ from employee.utils import generate_tokens
 
 # ############################################################################################
 class UserRegistrationView(APIView):
+    @method_decorator(csrf_exempt, name='dispatch')
     def post(self, request, *args, **kwargs):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
@@ -43,6 +47,8 @@ class UserRegistrationView(APIView):
 
 
 class UserLoginView(APIView):
+    @method_decorator(csrf_exempt, name='dispatch')
+    # @csrf_exempt
     def post(self, request, *args, **kwargs):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
@@ -64,8 +70,7 @@ class UserLoginView(APIView):
 
 class UserLogoutView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
+    @method_decorator(csrf_exempt, name='dispatch')
     def post(self, request, *args, **kwargs):
         user = request.user
         if not user or not user.is_refresh_token_valid():
@@ -78,8 +83,6 @@ class UserLogoutView(APIView):
 
 class UserProfileView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
     def get(self, request, *args, **kwargs):
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -87,8 +90,7 @@ class UserProfileView(APIView):
 
 class UserChangePasswordView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
+    @method_decorator(csrf_exempt, name='dispatch')
     def post(self, request, *args, **kwargs):
         serializer = UserChangePasswordSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
@@ -118,13 +120,72 @@ class UserPasswordResetView(APIView):
 
 
 # ################################################################################################
+### User ViewSet ###
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    authentication_classes = [JWTAuthentication]
+
+    @permission_required('view_users')
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to fetch user: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @permission_required('view_users')
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to fetch user: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @permission_required('update_users')
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to update user: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @permission_required('update_users')
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            return super().partial_update(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to partial update user: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+    @permission_required('delete_users')
+    def destroy(self, request, *args, **kwargs):
+        try:
+            response = super().destroy(request, *args, **kwargs)
+            return Response(
+                    {"message": "User deleted successfully."},
+                    status=status.HTTP_204_NO_CONTENT
+                ) if response.status_code == 204 else response
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to delete user: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 ### Department ViewSet ###
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     
     authentication_classes = [JWTAuthentication] 
-    permission_classes = [IsAuthenticated]
     
     @permission_required('create_department')
     def create(self, request, *args, **kwargs):
@@ -159,7 +220,11 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     @permission_required('delete_department')
     def destroy(self, request, *args, **kwargs):
         try:
-            return super().destroy(request, *args, **kwargs)
+            response = super().destroy(request, *args, **kwargs)
+            return Response(
+                {"message": "Department deleted successfully."},
+                status=status.HTTP_204_NO_CONTENT
+            ) if response.status_code == 204 else response
         except Exception as e:
             return Response(
                 {"error": f"Failed to delete department: {str(e)}"},
@@ -192,9 +257,7 @@ class RoleViewSet(viewsets.ModelViewSet):
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
     
-    authentication_classes = [JWTAuthentication]  
-    permission_classes = [IsAuthenticated]  
-    
+    authentication_classes = [JWTAuthentication]   
     
     @permission_required('create_role')
     def create(self, request, *args, **kwargs):
@@ -229,7 +292,11 @@ class RoleViewSet(viewsets.ModelViewSet):
     @permission_required('delete_role')
     def destroy(self, request, *args, **kwargs):
         try:
-            return super().destroy(request, *args, **kwargs)
+            response = super().destroy(request, *args, **kwargs)
+            return Response(
+                {"message": "Role deleted successfully."},
+                status=status.HTTP_204_NO_CONTENT
+            ) if response.status_code == 204 else response
         except Exception as e:
             return Response(
                 {"error": f"Failed to delete role: {str(e)}"},
@@ -263,8 +330,6 @@ class DesignationViewSet(viewsets.ModelViewSet):
     serializer_class = DesignationSerializer
     
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-    
     
     @permission_required('create_designation')
     def create(self, request, *args, **kwargs):
@@ -299,13 +364,17 @@ class DesignationViewSet(viewsets.ModelViewSet):
     @permission_required('delete_designation')
     def destroy(self, request, *args, **kwargs):
         try:
-            return super().destroy(request, *args, **kwargs)
+            response = super().destroy(request, *args, **kwargs)
+            return Response(
+                {"message": "Designation deleted successfully."},
+                status=status.HTTP_204_NO_CONTENT
+            ) if response.status_code == 204 else response
         except Exception as e:
             return Response(
                 {"error": f"Failed to delete designation: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+    
     @permission_required('view_designation')
     def list(self, request, *args, **kwargs):
         try:
@@ -331,8 +400,8 @@ class DesignationViewSet(viewsets.ModelViewSet):
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):  # Read-only operations
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
+    
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
 
     @permission_required('view_permission')
     def list(self, request, *args, **kwargs):
@@ -361,8 +430,6 @@ class UserRoleViewSet(viewsets.ModelViewSet):
     serializer_class = UserRoleSerializer
     
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
     
     @permission_required('create_user_role')
     def create(self, request, *args, **kwargs):
@@ -451,8 +518,6 @@ class UserDepartmentViewSet(viewsets.ModelViewSet):
     serializer_class = UserDepartmentSerializer
     
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-    
     
     @permission_required('create_user_department')
     def create(self, request, *args, **kwargs):
@@ -545,7 +610,6 @@ class UserDesignationViewSet(viewsets.ModelViewSet):
     serializer_class = UserDesignationSerializer
     
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
 
     @permission_required('create_user_designation')
     def create(self, request, *args, **kwargs):
@@ -637,27 +701,29 @@ class RolePermissionViewSet(viewsets.ModelViewSet):
     serializer_class = RolePermissionSerializer
     
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
     
-
     @permission_required('create_role_permission')
     def create(self, request, *args, **kwargs):
         try:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            role = serializer.validated_data['role']
-            permissions = serializer.validated_data['permissions']
+            role_id = request.data.get('role_id')
+            permissions_id = request.data.get('permissions_id')
+            role = Role.objects.get(role_id=role_id)
             
+            if permissions_id == "all":
+                permissions = Permission.objects.all()
+            else:
+                permissions = Permission.objects.filter(permission_id__in=permissions_id)
+
+            # Get or create RolePermission instance
             role_permission, created = RolePermission.objects.get_or_create(role=role)
             role_permission.permissions.set(permissions)
 
             return Response(RolePermissionSerializer(role_permission).data, status=status.HTTP_201_CREATED)
+
+        except Role.DoesNotExist:
+            return Response({"error": "Role not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response(
-                {"error": f"Failed to create role permission: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": f"Failed to create role permission: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
     @permission_required('update_role_permission')
     def update(self, request, *args, **kwargs):

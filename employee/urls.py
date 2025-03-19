@@ -4,11 +4,13 @@ from employee.views import (
     UserRegistrationView, UserLoginView, UserLogoutView, UserProfileView,
     UserChangePasswordView, SendPasswordResetEmailView, UserPasswordResetView,
     DepartmentViewSet, RoleViewSet, DesignationViewSet, PermissionViewSet,
-    UserRoleViewSet, UserDepartmentViewSet, UserDesignationViewSet, RolePermissionViewSet
+    UserRoleViewSet, UserDepartmentViewSet, UserDesignationViewSet, RolePermissionViewSet,
+    UserViewSet
 )
 
 # Create a router for ViewSets
 router = DefaultRouter()
+router.register(r'users', UserViewSet, basename='user')
 router.register(r'departments', DepartmentViewSet, basename='department')
 router.register(r'roles', RoleViewSet, basename='role')
 router.register(r'designations', DesignationViewSet, basename='designation')
@@ -30,4 +32,5 @@ urlpatterns = [
     # Include router-generated URLs
     path('', include(router.urls)),
 ]
+
 

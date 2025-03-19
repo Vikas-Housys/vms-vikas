@@ -6,6 +6,7 @@ from .models import Permission
 def create_permissions(sender, **kwargs):
     if sender.name == "employee":  # Ensure it runs for this app only
         permission_list = [
+            "view_users", "update_users", "delete_users",
             "create_user", "update_user", "delete_user", "view_user",
             "create_department", "update_department", "delete_department", "view_department",
             "create_designation", "update_designation", "delete_designation", "view_designation",

@@ -2,7 +2,7 @@
 from rest_framework import serializers
 from .models import (
     User, Department, Role, Designation, Permission,
-    UserRole, UserDepartment, UserDesignation, RolePermission
+    UserRole, UserDepartment, UserDesignation, RolePermission,
 )
 from django.utils.encoding import smart_str, force_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -110,6 +110,13 @@ class UserPasswordResetSerializer(serializers.Serializer):
         except (DjangoUnicodeDecodeError, ValueError):
             raise serializers.ValidationError({"error": _("Invalid UID encoding.")})
 
+# ###############################################################################################
+# User Serializer
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'name', 'email', 'mobile']
+
 
 # Department Serializer
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -178,5 +185,9 @@ class RolePermissionSerializer(serializers.ModelSerializer):
         model = RolePermission
         fields = ['id', 'role_id', 'permissions_id']
 
+    def validate_permissions_id(self, value):
+        if value == "all":
+            return Permission.objects.all()
+        return value
 
 

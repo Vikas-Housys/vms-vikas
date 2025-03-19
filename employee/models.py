@@ -102,6 +102,7 @@ class BlacklistedToken(models.Model):
         db_table = 'employee_blacklistedtoken'
 
 # ##################################################################################################
+
 # Department model
 class Department(models.Model):
     dept_id = models.AutoField(primary_key=True)
